@@ -1,0 +1,11 @@
+Screen {
+    align: center middle;
+}
+
+GetLocation {
+    width: 40;
+    height: 9;
+    padding: 1 2;
+    background: green 50%;
+    content-align: center middle;
+}
