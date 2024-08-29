@@ -9,3 +9,8 @@ GetLocation {
     background: green 50%;
     content-align: center middle;
 }
+
+OptionList {
+    width: 70%;
+    height: 80%;
+}
