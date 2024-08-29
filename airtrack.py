@@ -98,17 +98,17 @@ class Airtrack(App):
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         """Handle an option being selected."""
-        selected_option = event.option.text
-        selected_index = event.option.index
+        selected_option = event.option.prompt  # Correct attribute to use
 
         # Update the output based on the selection
         output = self.query_one("#output", Static)
-        output.update(f"Selected Option: {selected_option} (Index: {selected_index})")
+        output.update(f"Selected Option: {selected_option} (Index:)")
 
         # Remove the OptionList widget after selection
         option_list = self.query_one(OptionList)
         if option_list:
             option_list.remove()
+
             
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""
