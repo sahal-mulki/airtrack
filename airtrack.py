@@ -11,6 +11,73 @@ from textual.containers import Vertical
 from textual.containers import ScrollableContainer
 from rich.table import Table
 from geopy import distance
+from textual.screen import Screen
+from textual.reactive import Reactive
+import math
+from geopy import distance
+import logging
+
+# Configure logging to write to a file
+logging.basicConfig(
+    filename='airtrack.log',  # Log file name
+    filemode='w',             # Overwrite the file each run ('a' to append)
+    level=logging.DEBUG,      # Set the logging level
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Log format
+)
+
+# Example usage in the app
+logging.debug("Debug message")
+logging.info("Informational message")
+logging.warning("Warning message")
+logging.error("Error message")
+logging.critical("Critical message")
+
+async def get_real_time_angles(user_location, plane_location, altitude):
+    while True:
+        horizontal_angle = calculate_horizontal_angle(user_location, plane_location)
+        vertical_angle = calculate_vertical_angle(user_location, plane_location, altitude)
+        
+        yield horizontal_angle, vertical_angle
+        
+        await asyncio.sleep(1)  # Update every 1 second
+
+
+def calculate_horizontal_angle(user_location, plane_location):
+    lat1, lon1 = user_location
+    lat2, lon2 = plane_location
+    
+    delta_lon = lon2 - lon1
+    delta_lat = lat2 - lat1
+
+    logging.debug(f"Calculating horizontal angle:")
+    logging.debug(f"User Location: {user_location}, Plane Location: {plane_location}")
+    logging.debug(f"Delta Longitude: {delta_lon}, Delta Latitude: {delta_lat}")
+
+    # Calculate angle in degrees
+    angle = math.degrees(math.atan2(delta_lon, delta_lat))
+    if angle < 0:
+        angle += 360  # Normalize to 0-360 degrees
+
+    logging.debug(f"Calculated Horizontal Angle: {angle} degrees")
+    return angle
+
+
+def calculate_vertical_angle(user_location, plane_location, plane_altitude):
+    lat1, lon1 = user_location
+    lat2, lon2 = plane_location
+    
+    # Calculate the horizontal distance
+    horizontal_distance = distance.distance(user_location, plane_location).km
+    vertical_distance = plane_altitude  # Assume altitude is in kilometers
+
+    logging.debug(f"Calculating vertical angle:")
+    logging.debug(f"Horizontal Distance: {horizontal_distance} km, Vertical Distance: {vertical_distance} km")
+
+    # Calculate the vertical angle in degrees
+    angle = math.degrees(math.atan2(vertical_distance, horizontal_distance))
+
+    logging.debug(f"Calculated Vertical Angle: {angle} degrees")
+    return angle
 
 async def getCoords():
     locator = wdg.Geolocator()
@@ -30,6 +97,39 @@ fr_api = FlightRadar24API()
 #bounds = fr_api.get_bounds_by_point(location[0], location[1], 2000)
 
 
+class AngleDisplay(Static):
+    """Display angles in real time."""
+
+    horizontal_angle = Reactive(0.0)
+    vertical_angle = Reactive(0.0)
+
+    def __init__(self, user_location, plane_location, altitude) -> None:
+        super().__init__()
+        self.user_location = user_location
+        self.plane_location = plane_location
+        self.altitude = altitude
+
+    async def on_mount(self) -> None:
+        """Start updating angles when the widget is mounted."""
+        async for horizontal, vertical in get_real_time_angles(self.user_location, self.plane_location, self.altitude):
+            self.horizontal_angle = horizontal
+            self.vertical_angle = vertical
+
+    def watch_horizontal_angle(self, value: float) -> None:
+        """Update the displayed horizontal angle."""
+        self.update_display()
+
+    def watch_vertical_angle(self, value: float) -> None:
+        """Update the displayed vertical angle."""
+        self.update_display()
+
+    def update_display(self) -> None:
+        """Update the angle display."""
+        angle_info = (
+            f"Horizontal Angle: {self.horizontal_angle:.2f} degrees\n"
+            f"Vertical Angle: {self.vertical_angle:.2f} degrees"
+        )
+        self.update(angle_info)
 
 
 class GetLocation(Static):
@@ -63,6 +163,8 @@ class GetLocation(Static):
         self.notify("Finding nearby aircraft.")
         
         bounds = fr_api.get_bounds_by_point(location[0], location[1], 20000)
+
+        global flights
         flights = fr_api.get_flights(bounds = bounds)
 
         self.notify("Finding nearby aircraft information.")
@@ -114,7 +216,11 @@ class Airtrack(App):
 
         asyncio.sleep(2)
 
-            
+        selected_flight = flights[event.option_index]  # Get the selected flight data
+
+        # Extract flight details (for simplicity, assuming `table` contains complete data)
+        # Switch to the AngleScreen with the selected flight data
+        self.push_screen(AngleScreen(location, (selected_flight.latitude, selected_flight.longitude), selected_flight.altitude))
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""
         self.dark = not self.dark

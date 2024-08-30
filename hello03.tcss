@@ -13,4 +13,9 @@ GetLocation {
 OptionList {
     width: 70%;
     height: 80%;
+    content-align: center middle;
+}
+
+Static {
+    content-align: center middle;
 }
