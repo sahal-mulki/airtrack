@@ -81,7 +81,6 @@ def calculate_vertical_angle(user_location, plane_location, plane_altitude):
 
 async def getCoords():
     locator = wdg.Geolocator()
-    await locator.request_access_async()
     pos = await locator.get_geoposition_async()
     return [pos.coordinate.latitude, pos.coordinate.longitude]
 
@@ -203,10 +202,6 @@ class Airtrack(App):
         """Handle an option being selected."""
         selected_option = str(table[event.option_index])  # Correct attribute to use
 
-        # Update the output based on the selection
-        output = self.query_one("#output", Static)
-        output.update(f"Selected Option: {selected_option}")
-
         # Remove the OptionList widget after selection
         option_list = self.query_one(OptionList)
         title = self.query_one("#title", Static)
@@ -214,13 +209,12 @@ class Airtrack(App):
             option_list.remove()
             title.remove()
 
-        asyncio.sleep(2)
-
         selected_flight = flights[event.option_index]  # Get the selected flight data
 
         # Extract flight details (for simplicity, assuming `table` contains complete data)
         # Switch to the AngleScreen with the selected flight data
-        self.push_screen(AngleScreen(location, (selected_flight.latitude, selected_flight.longitude), selected_flight.altitude))
+        angle_display = AngleDisplay(location, (selected_flight.latitude, selected_flight.longitude), selected_flight.altitude)
+        self.mount(angle_display)
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""
         self.dark = not self.dark
