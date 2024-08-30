@@ -10,6 +10,7 @@ from textual.widgets import Button, Footer, Header, Static, OptionList
 from textual.containers import Vertical
 from textual.containers import ScrollableContainer
 from rich.table import Table
+from geopy import distance
 
 async def getCoords():
     locator = wdg.Geolocator()
@@ -39,7 +40,7 @@ class GetLocation(Static):
         pass
     
     async def on_click(self) -> None:
-        self.update(f"Getting Location....")
+        self.update(f"Getting Location.... (may take up to a minute, so relax)")
         global location
         location = await getLoc()
         self.notify("Got Location!")
@@ -48,18 +49,17 @@ class GetLocation(Static):
         await self.show_table()
 
     @staticmethod
-    def colony(callsign: str, dest: str, speed: str) -> Table:
+    def colony(callsign: str, dest: str, dist: str) -> Table:
         table = Table(expand=True)
         table.add_column("Plane Callsign")
         table.add_column("Destination")
-        table.add_column("Speed")
-        table.add_row(callsign, dest, speed)
+        table.add_column("Distance to You (km)")
+        table.add_row(callsign, dest, dist)
         return table
     
     async def show_table(self) -> None:
 
-
-        title = Static("Nearby Flights")
+        title = Static("Nearby Flights", id="title")
         self.notify("Finding nearby aircraft.")
         
         bounds = fr_api.get_bounds_by_point(location[0], location[1], 20000)
@@ -70,11 +70,12 @@ class GetLocation(Static):
         for flight in flights:
             flight_details = fr_api.get_flight_details(flight)
             flight.set_flight_details(flight_details)
-
+            
+        global table
         table = []
         
         for flight in flights:
-            table.append((flight.callsign, flight.destination_airport_name, str(flight.ground_speed)))
+            table.append((flight.callsign, flight.destination_airport_name, str(distance.distance(tuple(location), [flight.latitude, flight.longitude]).km)))
         
         # Yield the OptionList after removing the button
         parent = self.parent  # Get the parent container
@@ -98,16 +99,20 @@ class Airtrack(App):
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         """Handle an option being selected."""
-        selected_option = event.option.prompt  # Correct attribute to use
+        selected_option = str(table[event.option_index])  # Correct attribute to use
 
         # Update the output based on the selection
         output = self.query_one("#output", Static)
-        output.update(f"Selected Option: {selected_option} (Index:)")
+        output.update(f"Selected Option: {selected_option}")
 
         # Remove the OptionList widget after selection
         option_list = self.query_one(OptionList)
+        title = self.query_one("#title", Static)
         if option_list:
             option_list.remove()
+            title.remove()
+
+        asyncio.sleep(2)
 
             
     def action_toggle_dark(self) -> None:
